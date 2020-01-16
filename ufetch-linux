@@ -5,59 +5,63 @@
 ## INFO
 
 # user is already defined
-host="$(hostname)"
-os='Linux'	# I'd just like to interject for a moment...
-kernel="$(uname -sr)"
-uptime="$(uptime | awk -F, '{sub(".*up ",x,$1);print $1}' | sed -e 's/^[ \t]*//')"
-shell="$(basename ${SHELL})"
+host="$(cat /proc/sys/kernel/hostname)"
+os="$(uname -o)"
+kernel="$(uname -srm)"
 
-if [ -z "${WM}" ]; then
-	if [ "${XDG_CURRENT_DESKTOP}" ]; then
-		envtype='DE'
-		WM="${XDG_CURRENT_DESKTOP}"
-	elif [ "${DESKTOP_SESSION}" ]; then
-		envtype='DE'
-		WM="${DESKTOP_SESSION}"
-	else
-		envtype='WM'
-		WM="$(tail -n 1 "${HOME}/.xinitrc" | cut -d ' ' -f 2)"
-	fi
-else
-	envtype='WM'
-fi
+#Read uptime
+IFS=. read -r s _ < /proc/uptime
+
+# Convert the uptime from seconds into days, hours and minutes.
+d=$((s / 60 / 60 / 24))
+h=$((s / 60 / 60 % 24))
+m=$((s / 60 % 60))
+
+# Only append days, hours and minutes if they're non-zero.
+[ "$d" = 0 ] || uptime="${uptime}${d}d "
+[ "$h" = 0 ] || uptime="${uptime}${h}h "
+[ "$m" = 0 ] || uptime="${uptime}${m}m "
+
+uptime="${uptime:-0m}"
+
+shell="$(basename "$SHELL")"
+
+# Get CPU name.
+cpu_file="/proc/cpuinfo"
+
+cpu="$(awk -F '\\s*: | @' \
+                            '/model name|Hardware|Processor|^system type|chip type|^cpu type/ {
+                            cpu=$2; if ($1 == "Hardware") exit } END { print cpu }' "$cpu_file")"
+
 
 ## DEFINE COLORS
 
 # probably don't change these
-bold="$(tput bold)"
-black="$(tput setaf 0)"
-red="$(tput setaf 1)"
-green="$(tput setaf 2)"
-yellow="$(tput setaf 3)"
-blue="$(tput setaf 4)"
-magenta="$(tput setaf 5)"
-cyan="$(tput setaf 6)"
-white="$(tput setaf 7)"
-reset="$(tput sgr0)"
+bold='[1m'
+reset='[0m'
 
 # you can change these
-lc="${reset}${bold}${black}"	# labels
-nc="${reset}${bold}${black}"	# user and hostname
-ic="${reset}${bold}${white}"	# info
-c0="${reset}${bold}${black}"	# first color
-c1="${reset}${white}"			# second color
-c2="${reset}${yellow}"			# third color
+lc="${reset}${bold}"                # labels
+nc="${reset}${bold}"                # user and hostname
+ic="${reset}"                       # info
+c0='[39m'
+c1='[31m'; c2='[32m'
+c3='[33m'; c4='[34m'
+c5='[35m'; c6='[36m'
+c7='[37m'; c8='[38m'
+
+palette="[7m$c1  $c2  $c3  $c4  $c5  $c6  $c7  "
+
 
 ## OUTPUT
 
 cat <<EOF
-
-${c0}      ___     ${nc}${USER}${ic}@${nc}${host}${reset}
-${c0}     (${c1}.. ${c0}\    ${lc}OS:        ${ic}${os}${reset}
-${c0}     (${c2}<> ${c0}|    ${lc}KERNEL:    ${ic}${kernel}${reset}
-${c0}    /${c1}/  \\ ${c0}\\   ${lc}UPTIME:    ${ic}${uptime}${reset}
-${c0}   ( ${c1}|  | ${c0}/|  ${lc}SHELL:     ${ic}${shell}${reset}
-${c2}  _${c0}/\\ ${c1}__)${c0}/${c2}_${c0})  ${lc}${envtype}:        ${ic}${WM}${reset}
-${c2}  \/${c0}-____${c2}\/${reset}
+${bold}${c0}      ___     ${nc}${USER}${ic}@${nc}${host}${reset}
+${bold}${c0}     (${c7}.. ${c0}\    ${lc}OS:        ${ic}${os}${reset}
+${bold}${c0}     (${c3}<> ${c0}|    ${lc}CPU:       ${ic}${cpu}${reset}
+${bold}${c0}    /${c7}/  \\ ${c0}\\   ${lc}KERNEL:    ${ic}${kernel}${reset}
+${bold}${c0}   ( ${c7}|  | ${c0}/|  ${lc}UPTIME:    ${ic}${uptime}${reset} 
+${bold}${c3}  _${c0}/\\ ${c7}__)${c0}/${c3}_${c0})  ${lc}SHELL:     ${ic}${shell}${reset}
+${bold}${c3}  \/${c0}-____${c3}\/${reset}   ${ic}${palette}${reset}
 
 EOF
